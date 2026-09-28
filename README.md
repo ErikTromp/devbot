@@ -100,12 +100,6 @@ curl -X POST http://127.0.0.1:8000/jobs -H "Content-Type: application/json" -d "
 
 Do not expose that port on the public internet. Put the API behind a private network or a reverse proxy that is not world-reachable.
 
-## Publishing this repository
-
-`.env` and `users.yaml` are gitignored. They hold live tokens. Copy the `*.example` files and fill those in locally. Never `git add -f` them.
-
-This tree is safe to push once those files stay untracked. There is no license file yet. Add one before you invite reuse. The Compose Postgres password (`devbot` / `devbot`) is for local development only.
-
 ## Security
 
 Cursor can edit the worktree and run a shell inside it. Keep the worker environment to `GITHUB_TOKEN` and `CURSOR_API_KEY` (or the per-person keys in `users.yaml`). Slack text is untrusted. Repository names are validated against the allowlist. A git diff and the test runner are the check, not the model’s claim that it is done. Webhooks use Slack and GitHub HMAC.
