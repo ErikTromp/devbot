@@ -5,6 +5,7 @@ from app.agents.git_rules import AGENT_GIT_RULES
 from app.agents.coding import load_prompt
 from app.agents.cursor import CursorAgent
 from app.agents.decision import parse_agent_decision
+from app.agents.runner import coding_runner
 from app.config import Settings
 from app.db.models import Job
 
@@ -53,7 +54,7 @@ class PromptedCursorAgent:
 
     def __init__(self, settings: Settings, cursor: CursorAgent | None = None) -> None:
         self.settings = settings
-        self.cursor = cursor or CursorAgent(settings)
+        self.cursor = cursor or coding_runner(settings)
 
     def run(self, context: AgentContext) -> AgentResult:
         template = load_prompt(self.settings.prompts_dir, self.prompt_file)

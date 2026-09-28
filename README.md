@@ -1,6 +1,6 @@
 # Devbot
 
-Self-hosted pipeline that turns a Slack mention into a GitHub issue, a git worktree, and a pull request. Cursor’s headless CLI does the editing. You trigger each step. Devbot never merges.
+Self-hosted pipeline that turns a Slack mention into a GitHub issue, a git worktree, and a pull request. Cursor or GitHub Copilot’s headless CLI does the editing. You trigger each step. Devbot never merges.
 
 `create` → `implement` → `test` → `security` → `architect` → `document`
 
@@ -30,17 +30,17 @@ After a ticket exists, Slack commands use the **GitHub issue number** (`9` or `#
 @devbot ping
 ```
 
-`create` is the only command that opens an issue. `autopilot` runs `create` and then every later step, or continues an existing ticket from the next unfinished step. Name the repo by its `ALLOWED_REPOS` alias (`web`) or as `owner/name`. On `create` and on an `autopilot` that creates, an optional name from `users.yaml` selects that person’s GitHub token and Cursor key. Later steps inherit it.
+`create` is the only command that opens an issue. `autopilot` runs `create` and then every later step, or continues an existing ticket from the next unfinished step. Name the repo by its `ALLOWED_REPOS` alias (`web`) or as `owner/name`. On `create` and on an `autopilot` that creates, an optional name from `users.yaml` selects that person’s GitHub token and Cursor or Copilot key. Later steps inherit it.
 
 Other commands attach to an existing issue. Add the alias when the issue number exists in more than one repo. A later step runs only when every earlier step is `passed` or `skipped`. Each code step commits dirty files, pushes the ticket branch, and checks that `origin` has the same commit before the step finishes. Once that branch has been published, a later step will not recreate the worktree from the default branch. `commit` flushes stuck work without re-running a phase.
 
-When a step finishes, Slack posts `#N`, the title, and the next `run` or `skip` command. If Cursor is blocked, it asks in the thread. Reply with `@devbot`. Every step re-reads that thread and the GitHub issue comments.
+When a step finishes, Slack posts `#N`, the title, and the next `run` or `skip` command. If the coding agent is blocked, it asks in the thread. Reply with `@devbot`. Every step re-reads that thread and the GitHub issue comments.
 
 ## What each step does
 
 | Step | Result |
 | --- | --- |
-| `create` | Cursor agent mode writes a GitHub issue. It asks only when a missing fact makes the ticket unusable. |
+| `create` | Agent mode writes a GitHub issue. It asks only when a missing fact makes the ticket unusable. |
 | `implement` | Worktree on `agent/issue-N`. Plan, then agent. Nested unit tests (`npm test` / pytest under `frontend` or `backend`). Commit, push, open a PR. |
 | `test` | Broader checks (Playwright, Docker, Appium when present). Missing environment is not a pass. |
 | `security` | OWASP-style review plus scanners that are already in the repo. Fixes stay on the same branch. |
@@ -53,9 +53,9 @@ The worker also keeps a user-owned GitHub Project titled **Devbot** and moves th
 
 Token, Slack, and GitHub setup is in **[SETUP.md](SETUP.md)**.
 
-Required environment: `DATABASE_URL`, `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `GITHUB_TOKEN` (Contents, pull requests, issues, and Projects), `CURSOR_API_KEY`, `DEFAULT_GITHUB_ORG`, `AGENT_WORKSPACE`, `DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD`.
+Required environment: `DATABASE_URL`, `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `GITHUB_TOKEN` (Contents, pull requests, issues, and Projects), `CURSOR_API_KEY` or `COPILOT_GITHUB_TOKEN`, `DEFAULT_GITHUB_ORG`, `AGENT_WORKSPACE`, `DASHBOARD_USERNAME`, `DASHBOARD_PASSWORD`.
 
-Optional: `BASE_URL` (Slack links to `{BASE_URL}/tickets/DEV-N` when a plan is ready), `GITHUB_PROJECT_ID`, `GITHUB_ASSIGNEE`, `USERS_FILE`, `ALLOWED_REPOS`, `CURSOR_MODEL`.
+Optional: `BASE_URL` (Slack links to `{BASE_URL}/tickets/DEV-N` when a plan is ready), `GITHUB_PROJECT_ID`, `GITHUB_ASSIGNEE`, `USERS_FILE`, `ALLOWED_REPOS`, `CURSOR_MODEL`, `COPILOT_MODEL`, `CODING_AGENT` (required when both coding keys are set).
 
 ```bash
 python -m venv .venv
@@ -69,7 +69,7 @@ uvicorn app.main:app --reload --port 8000
 python -m app.jobs.worker
 ```
 
-Or `docker compose up -d --build` (API on port **8100**; the worker image includes the Linux Cursor CLI). On Windows, run the worker on the host so it can use `agent.exe`:
+Or `docker compose up -d --build` (API on port **8100**; the worker image includes the Linux Cursor and Copilot CLIs). On Windows, run the worker on the host so it can use `agent.exe` or `copilot`:
 
 ```bash
 docker compose up -d postgres api
@@ -82,11 +82,11 @@ Slack Events API request URL: `https://<host>/slack/events`. Subscribe to `app_m
 pytest
 ```
 
-Tests do not need Slack, GitHub, or Cursor credentials.
+Tests do not need Slack, GitHub, Cursor, or Copilot credentials.
 
 ## How it is wired
 
-FastAPI verifies Slack and GitHub webhook signatures and writes Postgres. A worker claims jobs with a lease and `SKIP LOCKED`, then runs Cursor (`agent -p --force --trust --workspace`, and `--mode plan` while planning `implement`), git, tests, and the GitHub API.
+FastAPI verifies Slack and GitHub webhook signatures and writes Postgres. A worker claims jobs with a lease and `SKIP LOCKED`, then runs Cursor (`agent -p --force --trust --workspace`, and `--mode plan` while planning `implement`) or Copilot (`copilot -p --yolo --plan`), git, tests, and the GitHub API. Which CLI runs is inferred from `cursor_api_key` vs `copilot_github_token` on the named user (or from process env). Both keys on one user require `agent: cursor` or `agent: copilot`.
 
 Job status moves `QUEUED` → `RUNNING` → `IDLE` | `AWAITING_INPUT` | `FAILED` | `CANCELLED` | `COMPLETED`. A crashed worker’s job can be reclaimed after `JOB_LEASE_SECONDS`.
 
@@ -102,4 +102,4 @@ Do not expose that port on the public internet. Put the API behind a private net
 
 ## Security
 
-Cursor can edit the worktree and run a shell inside it. Keep the worker environment to `GITHUB_TOKEN` and `CURSOR_API_KEY` (or the per-person keys in `users.yaml`). Slack text is untrusted. Repository names are validated against the allowlist. A git diff and the test runner are the check, not the model’s claim that it is done. Webhooks use Slack and GitHub HMAC.
+The coding agent can edit the worktree and run a shell inside it. Keep the worker environment to `GITHUB_TOKEN` and `CURSOR_API_KEY` or `COPILOT_GITHUB_TOKEN` (or the per-person keys in `users.yaml`). Slack text is untrusted. Repository names are validated against the allowlist. A git diff and the test runner are the check, not the model’s claim that it is done. Webhooks use Slack and GitHub HMAC.

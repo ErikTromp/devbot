@@ -11,6 +11,7 @@ COPY prompts ./prompts
 COPY alembic.ini ./
 
 RUN pip install --no-cache-dir . \
+    && npm install -g @github/copilot \
     && mkdir -p /workspace \
     && chown -R devbot:devbot /app /workspace
 

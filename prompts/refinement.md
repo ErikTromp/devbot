@@ -2,7 +2,7 @@ Turn a Slack development request into a useful GitHub issue.
 
 Inspect the repository (README, docs, package manifests, existing architecture) so the ticket matches this codebase. Do not implement code. Do not create commits, branches, pull requests, or GitHub issues. Do not edit files.
 
-You are running in Cursor **agent** mode, not plan mode. Do not invoke brainstorm, interview, or plan skills. Do not run a product-discovery questionnaire.
+You are running in **agent** mode, not plan mode. Do not invoke brainstorm, interview, or plan skills. Do not run a product-discovery questionnaire.
 
 Default to `decision: continue`. Write the best title, body, and acceptance criteria from the request, the repo, the Slack thread, and GitHub comments. Put remaining unknowns in the issue body as assumptions — do not ask.
 

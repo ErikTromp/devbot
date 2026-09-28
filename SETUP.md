@@ -2,7 +2,7 @@
 
 Do secrets before Docker. The worker clones target repos into `AGENT_WORKSPACE`; you do not clone them yourself.
 
-1. Copy `.env`, install Cursor CLI, create GitHub + Slack tokens.
+1. Copy `.env`, install Cursor CLI and/or Copilot CLI, create GitHub + Slack tokens.
 2. Start Postgres / API / worker.
 3. Point Slack Events at `https://<host>/slack/events` and `/invite @devbot`.
 
@@ -57,6 +57,25 @@ agent -p --trust "Reply with the word pong only"
 
 Optional: `CURSOR_MODEL`, `CURSOR_TIMEOUT_SECONDS` (default 900).
 
+## 2b. GitHub Copilot
+
+Headless Copilot CLI is an alternative to Cursor. Install one or both; each `users.yaml` person picks a backend by which coding key they set.
+
+```powershell
+npm install -g @github/copilot
+copilot --version
+```
+
+`copilot_github_token` must be a fine-grained PAT (`github_pat_…`) with the **Copilot Requests** permission, or a Copilot / GitHub CLI OAuth token. Classic `ghp_` PATs are rejected by Copilot CLI. Do not reuse `github_token` as the Copilot key.
+
+```text
+COPILOT_GITHUB_TOKEN=github_pat_...
+```
+
+When both `CURSOR_API_KEY` and `COPILOT_GITHUB_TOKEN` are set in `.env`, also set `CODING_AGENT=cursor` or `CODING_AGENT=copilot`. The same rule applies in `users.yaml`: both keys on one person require `agent: cursor` or `agent: copilot`.
+
+Optional: `COPILOT_MODEL`, `COPILOT_TIMEOUT_SECONDS` (default 900), `COPILOT_CLI_BIN` (default `copilot`).
+
 ## 3. GitHub
 
 Token user must be able to **create issues**, **push** `agent/issue-*`, and **open PRs**.
@@ -72,16 +91,21 @@ Classic PAT: `repo` plus `project`. Authorize SAML SSO for orgs or clones return
 
 The worker finds or creates a user-owned Project V2 titled **Devbot**, adds Status options for each pipeline phase plus `done`, and moves the issue when a phase starts or finishes. Pin an existing project with `GITHUB_PROJECT_ID=PVT_...` if the token cannot create projects. Missing project scope is logged and does not fail the job.
 
-Named GitHub + Cursor keys live in `users.yaml` (copy `users.yaml.example`; the file is gitignored):
+Named GitHub + coding keys live in `users.yaml` (copy `users.yaml.example`; the file is gitignored):
 
 ```yaml
 users:
   - name: Erik
     github_token: ghp_...
     cursor_api_key: cursor_...
+  - name: Ada
+    github_token: ghp_...
+    copilot_github_token: github_pat_...
 ```
 
-Slack: `@devbot create Erik web Some ticket description`. Later steps inherit that name. Omit the name to use `GITHUB_TOKEN` and `CURSOR_API_KEY`.
+Set either `cursor_api_key` or `copilot_github_token`. If both are present for one person, add `agent: cursor` or `agent: copilot`.
+
+Slack: `@devbot create Erik web Some ticket description`. Later steps inherit that name. Omit the name to use process `GITHUB_TOKEN` plus `CURSOR_API_KEY` or `COPILOT_GITHUB_TOKEN`.
 
 ```text
 GITHUB_TOKEN=github_pat_...
@@ -111,7 +135,7 @@ Events API over HTTPS — not Incoming Webhooks, not Socket Mode.
 | `channels:history` | Re-read the Slack thread on every pipeline step |
 | `groups:history` | Same, for private channels |
 
-Reinstall the Slack app after adding history scopes. Without them, Cursor still runs but cannot see older thread messages (GitHub issue comments still load).
+Reinstall the Slack app after adding history scopes. Without them, the coding agent still runs but cannot see older thread messages (GitHub issue comments still load).
 
 Install → `SLACK_BOT_TOKEN` (`xoxb-…`). **Basic Information → Signing Secret** → `SLACK_SIGNING_SECRET`.
 
@@ -184,6 +208,8 @@ Server: reverse-proxy the API, set Slack to `https://your.domain/slack/events`, 
 | Clone / push / issues fail | Token scopes (need **Issues** write), org, or `ALLOWED_REPOS` |
 | Worktree fails | `DEFAULT_GITHUB_BRANCH` wrong |
 | `agent` not found | `CURSOR_CLI_BIN` / PATH |
+| `copilot` not found | `COPILOT_CLI_BIN` / PATH; install `@github/copilot` |
+| Both coding keys, job fails | Set `agent: cursor` or `agent: copilot` (or `CODING_AGENT` in `.env`) |
 | Job `FAILED`, no file changes | Agent did not edit files; see `/jobs/DEV-1/events` |
 | Slack posts nothing | Missing `chat:write`, bot not in channel, empty token |
 

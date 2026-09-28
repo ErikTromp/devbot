@@ -6,6 +6,7 @@ from app.agents.base import AgentContext, AgentResult
 from app.agents.git_rules import AGENT_GIT_RULES
 from app.agents.cursor import CursorAgent
 from app.agents.decision import parse_agent_decision
+from app.agents.runner import coding_runner
 from app.config import Settings
 from app.db.models import Job
 
@@ -45,7 +46,7 @@ class CodingAgent:
 
     def __init__(self, settings: Settings, cursor: CursorAgent | None = None) -> None:
         self.settings = settings
-        self.cursor = cursor or CursorAgent(settings)
+        self.cursor = cursor or coding_runner(settings)
 
     def plan(self, context: AgentContext) -> AgentResult:
         return self._run_prompted(context, "planning.md", mode="plan")

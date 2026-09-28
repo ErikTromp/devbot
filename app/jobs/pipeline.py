@@ -58,7 +58,7 @@ class PipelineError(Exception):
 
 class NeedInfoError(Exception):
     def __init__(self, questions: list[str]) -> None:
-        super().__init__("Cursor needs more information")
+        super().__init__("The coding agent needs more information")
         self.questions = questions
 
 
@@ -222,7 +222,7 @@ def _run_create(session: Session, job: Job, deps: WorkerDeps, worker_id: str) ->
     renew_lease(session, job, worker_id, deps.settings)
     add_event(session, job, JobEventType.REFINEMENT_STARTED)
     session.commit()
-    notify(job, deps.slack, ["→ Refining a GitHub issue with Cursor (agent mode)"])
+    notify(job, deps.slack, [f"→ Refining a GitHub issue with {deps.settings.coding_agent_label()} (agent mode)"])
     cache = ensure_repo_cache(deps.settings, job.repository)
     result = deps.refinement.run(_agent_context(job, cache.path, deps, mode="agent"))
     if not result.ok:
@@ -424,14 +424,17 @@ def _run_plan(session: Session, job: Job, deps: WorkerDeps, worker_id: str) -> N
     add_event(session, job, JobEventType.PLAN_STARTED, payload={"attempt": job.attempt})
     session.commit()
     logger.info("job_activity", extra=log_extra(job_id=job.id, repository=job.repository, stage=job.current_stage, attempt=job.attempt))
-    notify(job, deps.slack, ["→ Writing an implementation plan (Cursor plan mode)"])
+    notify(job, deps.slack, [f"→ Writing an implementation plan ({deps.settings.coding_agent_label()} plan mode)"])
     result = planner(_agent_context(job, Path(job.worktree_path or "."), deps, mode="plan"))
     if not result.ok:
         raise PipelineError(result.summary or "Planning agent failed", retryable=True)
     decision = _raise_if_need_info(result, job)
     plan = _select_plan(decision, result, job)
     if not plan:
-        raise PipelineError("Cursor returned a status update instead of an implementation plan.", retryable=True)
+        raise PipelineError(
+            f"{deps.settings.coding_agent_label()} returned a status update instead of an implementation plan.",
+            retryable=True,
+        )
     plan_path = _write_plan_file(job, plan)
     lines = plan.count("\n") + 1
     words = len(plan.split())
@@ -514,7 +517,7 @@ def _run_coding(session: Session, job: Job, deps: WorkerDeps, worker_id: str) ->
     add_event(session, job, JobEventType.CODING_STARTED, payload={"attempt": job.attempt})
     session.commit()
     logger.info("job_activity", extra=log_extra(job_id=job.id, repository=job.repository, stage=job.current_stage, attempt=job.attempt))
-    notify(job, deps.slack, ["→ Implementing the plan (Cursor agent mode)"])
+    notify(job, deps.slack, [f"→ Implementing the plan ({deps.settings.coding_agent_label()} agent mode)"])
     result = deps.coding.run(_agent_context(job, Path(job.worktree_path or "."), deps, mode="agent"))
     decision = _raise_if_need_info(result, job)
     add_event(
@@ -531,14 +534,17 @@ def _run_coding(session: Session, job: Job, deps: WorkerDeps, worker_id: str) ->
     )
     session.commit()
     if not result.ok:
-        raise PipelineError(result.summary or "Cursor agent failed", retryable=True)
+        raise PipelineError(result.summary or f"{deps.settings.coding_agent_label()} agent failed", retryable=True)
     if decision.get("acceptance_criteria_met") is False:
         unmet = decision.get("unmet") or []
         raise PipelineError("Acceptance criteria not met: " + ", ".join(str(item) for item in unmet), retryable=True)
     repo = _worktree_repo(job, deps.settings)
     coding_base = repo.head_sha()
     if not repo.has_committable_changes() and repo.head_sha() == coding_base:
-        raise PipelineError("Cursor reported completion but the worktree has no file changes.", retryable=True)
+        raise PipelineError(
+            f"{deps.settings.coding_agent_label()} reported completion but the worktree has no file changes.",
+            retryable=True,
+        )
     job.current_stage = JobStage.TESTING.value
     session.commit()
     notify(job, deps.slack, ["✓ Implementation complete (diff present)", "→ Running tests"])
@@ -600,7 +606,10 @@ def _create_or_update_pr(session: Session, job: Job, deps: WorkerDeps, worker_id
         job,
         diff_stat=diff_stat,
         test_summary=test_summary,
-        agent_verification="Independent git diff confirmed worktree changes. Cursor success text was not trusted.",
+        agent_verification=(
+            "Independent git diff confirmed worktree changes. "
+            f"{deps.settings.coding_agent_label()} success text was not trusted."
+        ),
     )
     if job.pull_request_url and job.pull_request_number:
         try:

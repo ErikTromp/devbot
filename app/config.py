@@ -39,6 +39,18 @@ class Settings(BaseSettings):
     cursor_timeout_seconds: int = Field(default=900, description="Cursor subprocess timeout.")
     cursor_sandbox: str = Field(default="", description="Optional --sandbox enabled|disabled.")
 
+    copilot_github_token: str = Field(
+        default="",
+        description="Fine-grained PAT or Copilot OAuth token for headless Copilot CLI.",
+    )
+    copilot_cli_bin: str = Field(default="copilot", description="Copilot CLI binary name or path.")
+    copilot_model: str = Field(default="", description="Optional --model passed to Copilot CLI.")
+    copilot_timeout_seconds: int = Field(default=900, description="Copilot subprocess timeout.")
+    coding_agent: str = Field(
+        default="",
+        description="cursor or copilot. Empty = infer from which coding key is set.",
+    )
+
     agent_workspace: Path = Field(
         default=Path("./agent-workspace"),
         description="Root for repo caches and job worktrees.",
@@ -47,7 +59,7 @@ class Settings(BaseSettings):
         default="",
         description="Comma-separated allowlist: owner/repo;alias or owner;alias.",
     )
-    users_file: Path = Field(default=Path("./users.yaml"), description="YAML file of named GitHub/Cursor credentials.")
+    users_file: Path = Field(default=Path("./users.yaml"), description="YAML file of named GitHub and coding credentials.")
 
     github_assignee: str = Field(default="", description="Optional GitHub username assigned on phase start.")
 
@@ -96,6 +108,14 @@ class Settings(BaseSettings):
             names.add(entry.alias.lower())
             names.add(entry.repository.split("/")[-1].lower())
         return names
+
+    def resolved_coding_agent(self) -> str:
+        from app.users import resolve_coding_agent
+
+        return resolve_coding_agent(self.cursor_api_key, self.copilot_github_token, self.coding_agent)
+
+    def coding_agent_label(self) -> str:
+        return "Copilot" if self.resolved_coding_agent() == "copilot" else "Cursor"
 
     def resolved_users_file(self) -> Path:
         configured = Path(self.users_file)

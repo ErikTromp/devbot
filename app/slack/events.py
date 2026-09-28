@@ -112,7 +112,7 @@ def handle_slack_event(session: Session, payload: dict[str, Any], settings: Sett
     if parsed.command == SlackCommand.PING:
         slack.post_message(
             channel,
-            "pong — API reached this channel. Jobs and Cursor run in the host worker, not this reply.",
+            "pong — API reached this channel. Jobs and the coding agent run in the host worker, not this reply.",
             thread_ts=incoming_ts or None,
         )
         return {"ok": True, "command": "ping"}
@@ -600,7 +600,7 @@ def format_job_created(job: Job) -> str:
         f"Request: {job.request}\n\n"
         f"Phase: create\n"
         f"Internal id: `{job.display_id}` until the GitHub issue exists.\n"
-        f"→ Cursor will refine a GitHub issue. I will post `#N` and the title here when it is created.\n"
+        f"→ The coding agent will refine a GitHub issue. I will post `#N` and the title here when it is created.\n"
         + (
             "Autopilot is on. After create, implement → test → security → architect → document run without further Slack commands.\n"
             if (job.specification or {}).get("autopilot")

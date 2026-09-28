@@ -6,11 +6,11 @@ Order: create → implement → test → security → architect → document
 
 *Create a ticket*
 `@devbot create web redesign the landing page`
-`@devbot create Erik web redesign the landing page` — run create (and later steps) as that person's GitHub + Cursor keys
+`@devbot create Erik web redesign the landing page` — run create (and later steps) as that person's GitHub + Cursor or Copilot keys
 `@devbot web create Erik redesign the landing page` — same; name can sit with the command and repo, not in the description
 `@devbot autopilot web redesign the landing page` — create, then run every later step in order
 `@devbot autopilot 9` — run the remaining steps for an existing ticket
-Cursor **agent** mode writes a GitHub issue from the request and repo. It asks only if a missing fact makes the ticket unusable. Autopilot pauses if Cursor asks, then continues after you answer. `cancel` turns autopilot off.
+The coding agent writes a GitHub issue from the request and repo. It asks only if a missing fact makes the ticket unusable. Autopilot pauses if it asks, then continues after you answer. `cancel` turns autopilot off.
 
 *Work the ticket* (use `9` or `#9`, not `DEV-9`)
 `@devbot implement 9` — plan mode, then agent implements that plan, tests, PR
@@ -33,7 +33,7 @@ While create is still refining (no GitHub issue yet), use the internal id Slack 
 
 Every step re-reads the Slack thread and the GitHub issue comments (not a Postgres copy). Comment on the issue anytime.
 
-If Cursor asks, reply in the thread with `@devbot`. `@devbot just create the ticket` opens GitHub from what it has.
+If the agent asks, reply in the thread with `@devbot`. `@devbot just create the ticket` opens GitHub from what it has.
 
 After each finish I post the ticket number, title, and the next `run` or `skip` command.
 """

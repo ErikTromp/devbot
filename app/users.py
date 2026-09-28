@@ -8,6 +8,8 @@ import yaml
 
 from app.config import Settings
 
+CODING_AGENTS = frozenset({"cursor", "copilot"})
+
 
 class CredentialUserError(Exception):
     pass
@@ -17,7 +19,9 @@ class CredentialUserError(Exception):
 class CredentialUser:
     name: str
     github_token: str
-    cursor_api_key: str
+    cursor_api_key: str = ""
+    copilot_github_token: str = ""
+    agent: str = ""
 
 
 class UserCatalog:
@@ -64,9 +68,44 @@ def load_users(path: Path | str | None) -> UserCatalog:
                 name=name,
                 github_token=str(row.get("github_token") or "").strip(),
                 cursor_api_key=str(row.get("cursor_api_key") or "").strip(),
+                copilot_github_token=str(row.get("copilot_github_token") or "").strip(),
+                agent=str(row.get("agent") or "").strip(),
             )
         )
     return UserCatalog(users)
+
+
+def resolve_coding_agent(
+    cursor_api_key: str,
+    copilot_github_token: str,
+    coding_agent: str = "",
+    *,
+    required: bool = False,
+    user_name: str | None = None,
+) -> str:
+    who = f"Credential user {user_name!r}" if user_name else "Process credentials"
+    explicit = (coding_agent or "").strip().lower()
+    has_cursor = bool((cursor_api_key or "").strip())
+    has_copilot = bool((copilot_github_token or "").strip())
+    if explicit:
+        if explicit not in CODING_AGENTS:
+            raise CredentialUserError(f"{who} has unknown agent {coding_agent!r}. Use cursor or copilot.")
+        if explicit == "cursor" and not has_cursor:
+            raise CredentialUserError(f"{who} selected cursor but is missing cursor_api_key.")
+        if explicit == "copilot" and not has_copilot:
+            raise CredentialUserError(f"{who} selected copilot but is missing copilot_github_token.")
+        return explicit
+    if has_cursor and has_copilot:
+        raise CredentialUserError(
+            f"{who} has both cursor_api_key and copilot_github_token. Set agent: cursor or agent: copilot."
+        )
+    if has_cursor:
+        return "cursor"
+    if has_copilot:
+        return "copilot"
+    if required:
+        raise CredentialUserError(f"{who} is missing cursor_api_key or copilot_github_token.")
+    return "cursor"
 
 
 def settings_for_job(settings: Settings, credential_user: str | None) -> Settings:
@@ -75,6 +114,20 @@ def settings_for_job(settings: Settings, credential_user: str | None) -> Setting
     user = load_users(settings.resolved_users_file()).resolve(credential_user)
     if user is None:
         raise CredentialUserError(f"Unknown credential user {credential_user!r}. Add them to users.yaml.")
-    if not user.github_token or not user.cursor_api_key:
-        raise CredentialUserError(f"Credential user {user.name!r} is missing github_token or cursor_api_key.")
-    return settings.model_copy(update={"github_token": user.github_token, "cursor_api_key": user.cursor_api_key})
+    if not user.github_token:
+        raise CredentialUserError(f"Credential user {user.name!r} is missing github_token.")
+    coding_agent = resolve_coding_agent(
+        user.cursor_api_key,
+        user.copilot_github_token,
+        user.agent,
+        required=True,
+        user_name=user.name,
+    )
+    return settings.model_copy(
+        update={
+            "github_token": user.github_token,
+            "cursor_api_key": user.cursor_api_key,
+            "copilot_github_token": user.copilot_github_token,
+            "coding_agent": coding_agent,
+        }
+    )
