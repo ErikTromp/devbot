@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Devbot pipeline{% endblock %}
+{% block body %}
+<div class="desk">
+  <header class="mast">
+    <div class="mast-title">
+      <h1>Devbot</h1>
+      <p id="live-state" class="live" aria-live="polite">live</p>
+    </div>
+    <label class="repo-filter">
+      <span>Repo</span>
+      <select id="repo-filter" aria-label="Filter by repository">
+        <option value="">All</option>
+        {% for repo in repos %}
+        <option value="{{ repo }}" {% if repo == selected_repo %}selected{% endif %}>{{ repo.split('/')[-1] }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <ul id="status-counts" class="counts">
+      <li data-status="QUEUED"><span class="count-n">{{ counts.QUEUED }}</span> queued</li>
+      <li data-status="RUNNING"><span class="count-n">{{ counts.RUNNING }}</span> running</li>
+      <li data-status="IDLE"><span class="count-n">{{ counts.IDLE }}</span> idle</li>
+      <li data-status="AWAITING_INPUT"><span class="count-n">{{ counts.AWAITING_INPUT }}</span> awaiting</li>
+      <li data-status="FAILED"><span class="count-n">{{ counts.FAILED }}</span> failed</li>
+    </ul>
+    {% include "logout.html" %}
+  </header>
+
+  {% if not jobs %}
+  <section class="empty" aria-label="Empty pipeline">
+    <h2>No pipeline jobs yet</h2>
+    <p>{% if selected_repo %}No tickets for <code>{{ selected_repo }}</code> yet.{% else %}Start with <code>@devbot create web …</code> in Slack. Tickets will sort into the phase that needs you next.{% endif %}</p>
+  </section>
+  {% else %}
+  <section class="rack" aria-label="Pipeline phases">
+    {% for phase in phases %}
+    <section class="bin" data-phase="{{ phase }}">
+      <header class="bin-head">
+        <h2>{{ phase }}</h2>
+        <span class="bin-count">{{ columns[phase]|length }}</span>
+      </header>
+      <div class="bin-cards">
+        {% for job in columns[phase] %}
+        {% include "ticket_card.html" %}
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/dashboard.js" defer></script>
+{% endblock %}

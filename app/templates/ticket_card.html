@@ -1,0 +1,17 @@
+<a class="ticket" href="/tickets/{{ job.display_id }}" data-id="{{ job.display_id }}" data-status="{{ job.status }}">
+  <span class="stub">{{ job.issue_ref }}</span>
+  <span class="ticket-main">
+    <span class="ticket-title">{{ job.issue_title or job.request }}</span>
+    <span class="ticket-meta">
+      <span>{{ job.repository }}</span>
+      {% if job.credential_user %}<span class="owner">{{ job.credential_user }}</span>{% endif %}
+    </span>
+    <span class="dots" aria-hidden="true">
+      {% for name, entry in (job.phase_results or {}).items() %}
+      <i class="dot" data-phase="{{ name }}" data-status="{{ (entry or {}).status or 'pending' }}"></i>
+      {% endfor %}
+    </span>
+    <span class="ticket-next">{{ job.next_action }}</span>
+  </span>
+  <span class="stamp stamp-{{ job.status|lower }}">{{ job.status|replace('_', ' ')|lower }}</span>
+</a>

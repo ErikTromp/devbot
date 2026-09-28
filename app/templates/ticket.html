@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ job.issue_ref }} · {{ job.issue_title }}{% endblock %}
+{% block body %}
+<div class="desk desk-ticket">
+  <header class="mast">
+    <div class="mast-title">
+      <a class="back" href="/">Pipeline</a>
+      <h1>{{ job.issue_ref }} {{ job.issue_title }}</h1>
+    </div>
+    <p class="mast-sub">
+      <span>{{ job.repository }}</span>
+      {% if job.credential_user %}<span class="owner">Owner {{ job.credential_user }}</span>{% endif %}
+      {% if job.requested_by %}<span>asked by {{ job.requested_by }}</span>{% endif %}
+      <span>updated {{ job.updated_at|when }}</span>
+    </p>
+    {% include "logout.html" %}
+    <ul class="links">
+      {% if job.github_issue_url %}
+      <li>
+        <a href="{{ job.github_issue_url }}" rel="noreferrer">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.3a6.7 6.7 0 0 0-2.1 13c.3.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.3-.8-.8-1-.8-1-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.8.9 2.2.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.6v2.3c0 .2.2.5.5.4A6.7 6.7 0 0 0 8 1.3z"/></svg>
+          Issue
+        </a>
+      </li>
+      {% endif %}
+      {% if job.pull_request_url %}
+      <li>
+        <a href="{{ job.pull_request_url }}" rel="noreferrer">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.2 2.2a1.4 1.4 0 1 0-1.7.2v4.3A2.4 2.4 0 0 0 3 8.8a2.4 2.4 0 0 0 1.5 2.2v2.6a1.4 1.4 0 1 0 1.7.1V4.6l3.6 3.6v2.8a1.4 1.4 0 1 0 1.7.1V7.4L8.2 4V2.4a1.4 1.4 0 0 0-2-.2z"/></svg>
+          Pull request
+        </a>
+      </li>
+      {% endif %}
+      {% if job.branch_name %}
+      <li><code>{{ job.branch_name }}</code></li>
+      {% endif %}
+    </ul>
+  </header>
+
+  {% if job.status == "RUNNING" %}
+  <p class="activity" role="status">{{ job.activity }}</p>
+  {% endif %}
+
+  {% if job.last_error %}
+  <p class="error-banner" role="alert">{{ job.last_error }}</p>
+  {% endif %}
+
+  <ol class="phase-rail">
+    {% for phase in phases %}
+    <li class="phase-step" data-status="{{ phase.status }}" {% if phase.current %}data-current="true"{% endif %}>
+      <span class="phase-name">{{ phase.name }}</span>
+      <span class="phase-state">{{ phase.status|replace('_', ' ') }}</span>
+      {% if phase.summary %}<div class="phase-summary">{{ phase.summary|markdown|safe }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+
+  {% if show_implement_stages %}
+  <ol class="stage-rail">
+    {% for stage in implement_stages %}
+    <li data-active="{{ 'true' if job.current_stage == stage else 'false' }}">{{ stage|replace('_', ' ') }}</li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+
+  {% if job.status == "RUNNING" %}
+  <p class="next-line">This page refreshes every few seconds until the step finishes.</p>
+  {% else %}
+  <p class="next-line">{{ job.next_action }}</p>
+  {% endif %}
+
+  <div class="split">
+    <section class="sheet" aria-labelledby="plan-heading">
+      <h2 id="plan-heading">Plan</h2>
+      {% if plan.source == "worktree" %}
+      <p class="sheet-meta">From <code>{{ plan.path }}</code> on the worktree</p>
+      <div class="plan-body">{{ plan.html|safe }}</div>
+      {% elif plan.source == "summary" %}
+      <p class="sheet-meta">Worktree file is gone; showing the stored summary</p>
+      <div class="plan-body">{{ plan.html|safe }}</div>
+      {% elif plan.source == "stored" %}
+      <p class="sheet-meta">Saved on the ticket</p>
+      <div class="plan-body">{{ plan.html|safe }}</div>
+      {% else %}
+      <p class="sheet-empty">No plan yet. It appears here after <code>@devbot implement</code> writes <code>.devbot/plan.md</code>.</p>
+      {% endif %}
+    </section>
+
+    <section class="log" aria-labelledby="log-heading">
+      <h2 id="log-heading">Events</h2>
+      {% if events %}
+      <ol class="log-list">
+        {% for event in events %}
+        <li>
+          <time datetime="{{ event.created_at }}">{{ event.created_at|when }}</time>
+          <span class="log-type">{{ event.label }}</span>
+          {% if event.from_status and event.to_status %}
+          <span class="log-move">{{ event.from_status }} → {{ event.to_status }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="sheet-empty">No events recorded yet.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{% if job.status == "RUNNING" %}
+<script>
+  window.setTimeout(function () { window.location.reload(); }, 5000);
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Ticket not found{% endblock %}
+{% block body %}
+<div class="desk">
+  <header class="mast">
+    <div class="mast-title">
+      <a class="back" href="/">Pipeline</a>
+      <h1>Ticket not found</h1>
+    </div>
+    <p class="mast-sub">Nothing in the pipeline matches <code>{{ job_id }}</code>.</p>
+    {% include "logout.html" %}
+  </header>
+</div>
+{% endblock %}

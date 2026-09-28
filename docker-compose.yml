@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: devbot
+      POSTGRES_PASSWORD: devbot
+      POSTGRES_DB: devbot
+    expose:
+      - 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devbot -d devbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://devbot:devbot@postgres:5432/devbot
+      AGENT_WORKSPACE: /workspace
+    ports:
+      - "8100:8000"
+    volumes:
+      - agent_workspace:/workspace
+      - ./users.yaml:/app/users.yaml:ro
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    user: "10001:10001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 18
+
+  worker:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://devbot:devbot@postgres:5432/devbot
+      AGENT_WORKSPACE: /workspace
+    volumes:
+      - agent_workspace:/workspace
+      - ./users.yaml:/app/users.yaml:ro
+    command: python -m app.jobs.worker
+    user: "10001:10001"
+
+volumes:
+  postgres_data:
+  agent_workspace:

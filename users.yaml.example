@@ -1,0 +1,4 @@
+users:
+  - name: Erik
+    github_token: ghp_your_token
+    cursor_api_key: cursor_your_key

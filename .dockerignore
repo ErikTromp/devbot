@@ -1,0 +1,12 @@
+.git
+.venv
+venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.env
+.env.*
+users.yaml
+agent-workspace
+workspace
+tests

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Devbot{% endblock %}
+{% block body %}
+<div class="desk desk-login">
+  <header class="mast">
+    <div class="mast-title">
+      <h1>Devbot</h1>
+    </div>
+  </header>
+  <form class="login-sheet" method="post" action="/login">
+    <h2>Sign in</h2>
+    {% if error %}
+    <p class="error-banner" role="alert">{{ error }}</p>
+    {% endif %}
+    <input type="hidden" name="next" value="{{ next }}" />
+    <label>
+      Username
+      <input type="text" name="username" autocomplete="username" required autofocus />
+    </label>
+    <label>
+      Password
+      <input type="password" name="password" autocomplete="current-password" required />
+    </label>
+    <button type="submit">Open the board</button>
+  </form>
+</div>
+{% endblock %}
