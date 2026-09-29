@@ -10,7 +10,7 @@ function escapeHtml(value) {
 }
 
 function selectedRepo() {
-  return new URLSearchParams(window.location.search).get("repo") || "";
+  return new URLSearchParams(window.location.search).get("repo") || sessionStorage.getItem("devbot.repo") || "";
 }
 
 function shortRepo(repository) {
@@ -18,13 +18,36 @@ function shortRepo(repository) {
   return parts[parts.length - 1] || repository;
 }
 
-function uniqueRepos(jobs) {
-  return [...new Set(jobs.map((job) => job.repository).filter(Boolean))].sort();
+function repoAlias(job) {
+  return job.repo_alias || shortRepo(job.repository) || job.repository || "";
+}
+
+function repoMatches(job, selected) {
+  if (!selected) return true;
+  const key = selected.toLowerCase();
+  const repository = String(job.repository || "");
+  return [repository, repoAlias(job), shortRepo(repository)].some((value) => String(value).toLowerCase() === key);
+}
+
+function uniqueRepoOptions(jobs, listed) {
+  const options = new Map();
+  for (const repo of listed || []) {
+    if (!repo || !(repo.alias || repo.repository)) continue;
+    const alias = repo.alias || shortRepo(repo.repository);
+    options.set((repo.repository || alias).toLowerCase(), { repository: repo.repository || "", alias });
+  }
+  for (const job of jobs) {
+    if (!job.repository) continue;
+    const key = job.repository.toLowerCase();
+    if (options.has(key)) continue;
+    options.set(key, { repository: job.repository, alias: repoAlias(job) });
+  }
+  return [...options.values()].sort((left, right) => left.alias.localeCompare(right.alias));
 }
 
 function visibleJobs(jobs) {
   const repo = selectedRepo();
-  return repo ? jobs.filter((job) => job.repository === repo) : jobs;
+  return repo ? jobs.filter((job) => repoMatches(job, repo)) : jobs;
 }
 
 function countsFor(jobs) {
@@ -52,7 +75,7 @@ function renderCard(job) {
     <span class="stub">${escapeHtml(job.issue_ref)}</span>
     <span class="ticket-main">
       <span class="ticket-title">${escapeHtml(job.issue_title || job.request)}</span>
-      <span class="ticket-meta"><span>${escapeHtml(job.repository)}</span>${owner}</span>
+      <span class="ticket-meta"><span>${escapeHtml(repoAlias(job))}</span>${owner}</span>
       <span class="dots" aria-hidden="true">${dots}</span>
       <span class="ticket-next">${escapeHtml(job.next_action)}</span>
     </span>
@@ -60,19 +83,20 @@ function renderCard(job) {
   </a>`;
 }
 
-function syncRepoFilter(jobs) {
+function syncRepoFilter(repos) {
   const select = document.getElementById("repo-filter");
   if (!select) return;
   const selected = selectedRepo();
-  const repos = uniqueRepos(jobs);
-  if (selected && !repos.includes(selected)) repos.push(selected);
-  repos.sort();
   const options = ['<option value="">All</option>'].concat(
-    repos.map(
-      (repo) =>
-        `<option value="${escapeHtml(repo)}"${repo === selected ? " selected" : ""}>${escapeHtml(shortRepo(repo))}</option>`,
-    ),
+    repos.map((repo) => {
+      const alias = repo.alias || shortRepo(repo.repository);
+      const active = selected && [alias, repo.repository].some((value) => String(value).toLowerCase() === selected.toLowerCase());
+      return `<option value="${escapeHtml(alias)}"${active ? " selected" : ""}>${escapeHtml(alias)}</option>`;
+    }),
   );
+  if (selected && !repos.some((repo) => [repo.alias, repo.repository].some((value) => String(value || "").toLowerCase() === selected.toLowerCase()))) {
+    options.push(`<option value="${escapeHtml(selected)}" selected>${escapeHtml(shortRepo(selected))}</option>`);
+  }
   select.innerHTML = options.join("");
 }
 
@@ -115,7 +139,7 @@ function renderBoard(data) {
   const live = document.getElementById("live-state");
   if (!desk) return;
   const allJobs = data.jobs || [];
-  syncRepoFilter(allJobs);
+  syncRepoFilter(uniqueRepoOptions(allJobs, data.repos));
   const jobs = visibleJobs(allJobs);
   const counts = countsFor(jobs);
   for (const key of COUNT_KEYS) {
@@ -138,10 +162,12 @@ function renderBoard(data) {
     grouped[phase].push(job);
   }
   for (const phase of PHASES) {
-    const bin = rack.querySelector(`[data-phase="${phase}"]`);
+    const bin = rack.querySelector(`.bin[data-phase="${phase}"]`);
     if (!bin) continue;
-    bin.querySelector(".bin-count").textContent = String(grouped[phase].length);
-    bin.querySelector(".bin-cards").innerHTML = grouped[phase].map(renderCard).join("");
+    const count = bin.querySelector(".bin-count");
+    const cards = bin.querySelector(".bin-cards");
+    if (count) count.textContent = String(grouped[phase].length);
+    if (cards) cards.innerHTML = grouped[phase].map(renderCard).join("");
   }
   if (live) {
     live.dataset.state = "live";
@@ -163,19 +189,37 @@ async function poll() {
   }
 }
 
+function persistRepo(value) {
+  const url = new URL(window.location.href);
+  if (value) {
+    url.searchParams.set("repo", value);
+    sessionStorage.setItem("devbot.repo", value);
+  } else {
+    url.searchParams.delete("repo");
+    sessionStorage.removeItem("devbot.repo");
+  }
+  history.replaceState({}, "", url);
+}
+
 function bindRepoFilter() {
   const select = document.getElementById("repo-filter");
   if (!select) return;
   select.addEventListener("change", () => {
-    const url = new URL(window.location.href);
-    if (select.value) url.searchParams.set("repo", select.value);
-    else url.searchParams.delete("repo");
-    history.replaceState({}, "", url);
+    persistRepo(select.value);
     poll();
   });
 }
 
-if (document.querySelector(".rack, .empty")) {
+function initRepoFilter() {
+  const urlRepo = new URLSearchParams(window.location.search).get("repo") || "";
+  const stored = sessionStorage.getItem("devbot.repo") || "";
+  if (urlRepo) sessionStorage.setItem("devbot.repo", urlRepo);
+  else if (stored) persistRepo(stored);
   bindRepoFilter();
+}
+
+if (document.querySelector(".rack, .empty")) {
+  initRepoFilter();
+  poll();
   window.setInterval(poll, 4000);
 }

@@ -21,3 +21,18 @@ def test_plain_names_keep_working() -> None:
     catalog = parse_allowed_repos("myapp,acme/other", "acme")
     assert catalog.resolve("myapp") == "acme/myapp"
     assert catalog.resolve("other") == "acme/other"
+
+
+def test_alias_for_and_matches() -> None:
+    catalog = parse_allowed_repos("acme/frontend-app;web,northwind;shop")
+    assert catalog.alias_for("acme/frontend-app") == "web"
+    assert catalog.alias_for("web") == "web"
+    assert catalog.alias_for("acme/unknown") == "unknown"
+    assert catalog.matches("acme/frontend-app", "web")
+    assert catalog.matches("acme/frontend-app", "acme/frontend-app")
+    assert catalog.matches("acme/frontend-app", "frontend-app")
+    assert not catalog.matches("acme/frontend-app", "shop")
+    empty = parse_allowed_repos("")
+    assert empty.alias_for("acme/myapp") == "myapp"
+    assert empty.matches("acme/myapp", "myapp")
+    assert empty.matches("acme/myapp", "acme/myapp")

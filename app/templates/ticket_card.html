@@ -3,7 +3,7 @@
   <span class="ticket-main">
     <span class="ticket-title">{{ job.issue_title or job.request }}</span>
     <span class="ticket-meta">
-      <span>{{ job.repository }}</span>
+      <span>{{ job.repo_alias or job.repository }}</span>
       {% if job.credential_user %}<span class="owner">{{ job.credential_user }}</span>{% endif %}
     </span>
     <span class="dots" aria-hidden="true">

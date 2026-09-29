@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.jobs.board import activity_label, board_phase, display_phase_results, event_label, next_action_lines, next_user_phase, read_job_plan, specification_subset, status_counts
 from app.jobs.models import parse_job_display_id
 from app.jobs.service import create_job, list_pipeline_jobs
+from app.repos import board_repo_options
 from app.slack.parser import normalize_repo
 
 router = APIRouter()
@@ -41,6 +42,7 @@ def _job_payload(job: Job) -> dict[str, Any]:
         "display_id": job.display_id,
         "external_key": job.external_key,
         "repository": job.repository,
+        "repo_alias": get_settings().repo_catalog().alias_for(job.repository),
         "request": job.request,
         "slack_channel": job.slack_channel,
         "slack_thread_ts": job.slack_thread_ts,
@@ -104,9 +106,14 @@ def create_job_endpoint(
 
 
 @router.get("/jobs")
-def list_jobs_endpoint(session: Session = Depends(get_db)) -> dict[str, Any]:
+def list_jobs_endpoint(session: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> dict[str, Any]:
     jobs = list_pipeline_jobs(session)
-    return {"jobs": [_job_payload(job) for job in jobs], "counts": status_counts(jobs)}
+    catalog = settings.repo_catalog()
+    return {
+        "jobs": [_job_payload(job) for job in jobs],
+        "counts": status_counts(jobs),
+        "repos": board_repo_options(catalog, [job.repository for job in jobs]),
+    }
 
 
 @router.get("/jobs/{job_id}")

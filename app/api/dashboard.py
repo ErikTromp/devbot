@@ -16,6 +16,7 @@ from app.db.session import get_db
 from app.jobs.board import read_job_plan, render_plan_markdown, status_counts
 from app.jobs.models import PIPELINE_ORDER, JobStage
 from app.jobs.service import list_pipeline_jobs
+from app.repos import board_repo_options
 
 router = APIRouter()
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -83,11 +84,18 @@ def _auth_context(request: Request, settings: Settings | None = None) -> dict[st
 
 
 @router.get("/", response_class=HTMLResponse)
-def pipeline_board(request: Request, session=Depends(get_db), repo: str = "") -> HTMLResponse:
+def pipeline_board(
+    request: Request,
+    session=Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    repo: str = "",
+) -> HTMLResponse:
     jobs = list_pipeline_jobs(session)
-    repos = sorted({job.repository for job in jobs if job.repository})
+    catalog = settings.repo_catalog()
     selected = repo.strip()
-    visible = [job for job in jobs if not selected or job.repository == selected]
+    repos = board_repo_options(catalog, [job.repository for job in jobs if job.repository])
+    visible = [job for job in jobs if catalog.matches(job.repository, selected, settings.default_github_org)]
+    selected_label = catalog.alias_for(catalog.resolve(selected, settings.default_github_org) or selected) if selected else ""
     payloads = [_job_payload(job) for job in visible]
     columns = {phase.value: [] for phase in PIPELINE_ORDER}
     for payload in payloads:
@@ -103,6 +111,7 @@ def pipeline_board(request: Request, session=Depends(get_db), repo: str = "") ->
             "counts": status_counts(visible),
             "repos": repos,
             "selected_repo": selected,
+            "selected_repo_label": selected_label,
         },
     )
 

@@ -4,11 +4,11 @@
 <div class="desk desk-ticket">
   <header class="mast">
     <div class="mast-title">
-      <a class="back" href="/">Pipeline</a>
+      <a class="back" href="{% if job.repo_alias %}/?repo={{ job.repo_alias }}{% else %}/{% endif %}">Pipeline</a>
       <h1>{{ job.issue_ref }} {{ job.issue_title }}</h1>
     </div>
     <p class="mast-sub">
-      <span>{{ job.repository }}</span>
+      <span>{{ job.repo_alias or job.repository }}</span>
       {% if job.credential_user %}<span class="owner">Owner {{ job.credential_user }}</span>{% endif %}
       {% if job.requested_by %}<span>asked by {{ job.requested_by }}</span>{% endif %}
       <span>updated {{ job.updated_at|when }}</span>

@@ -41,6 +41,37 @@ class RepoCatalog:
             for entry in self.entries
         )
 
+    def alias_for(self, repository: str) -> str:
+        raw = _strip_repo_prefix(repository)
+        if not raw:
+            return ""
+        key = raw.lower()
+        for entry in self.entries:
+            if key in {entry.alias.lower(), entry.repository.lower(), entry.repository.split("/")[-1].lower()}:
+                return entry.alias
+        return raw.split("/")[-1]
+
+    def matches(self, repository: str, selected: str, default_org: str = "") -> bool:
+        token = (selected or "").strip()
+        if not token:
+            return True
+        have = (repository or "").strip()
+        if not have:
+            return False
+        wanted = self.resolve(token, default_org)
+        got = self.resolve(have, default_org) or have
+        if wanted and wanted.lower() == got.lower():
+            return True
+        key = token.lower()
+        return key in {
+            have.lower(),
+            got.lower(),
+            have.split("/")[-1].lower(),
+            got.split("/")[-1].lower(),
+            self.alias_for(have).lower(),
+            self.alias_for(got).lower(),
+        }
+
 
 def _strip_repo_prefix(value: str | None) -> str:
     text = (value or "").strip().strip("/")
@@ -88,3 +119,22 @@ def parse_allowed_repos(raw: str, default_org: str = "") -> RepoCatalog:
         seen_alias.add(key)
         entries.append(RepoEntry(repository=repository, alias=alias))
     return RepoCatalog(tuple(entries))
+
+
+def board_repo_options(catalog: RepoCatalog, repositories: list[str]) -> list[dict[str, str]]:
+    options: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for entry in catalog.entries:
+        key = entry.repository.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        options.append({"repository": entry.repository, "alias": entry.alias})
+    for repo in repositories:
+        text = (repo or "").strip()
+        if not text or text.lower() in seen:
+            continue
+        seen.add(text.lower())
+        options.append({"repository": text, "alias": catalog.alias_for(text)})
+    options.sort(key=lambda item: (item["alias"].lower(), item["repository"].lower()))
+    return options

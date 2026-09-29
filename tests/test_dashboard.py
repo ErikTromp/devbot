@@ -93,6 +93,8 @@ def test_list_jobs_and_plan_fallback(client, session) -> None:
     assert body["counts"]["IDLE"] == 1
     payload = body["jobs"][0]
     assert payload["display_id"] == job.display_id
+    assert payload["repo_alias"] == "myapp"
+    assert body["repos"] == [{"repository": "acme/myapp", "alias": "myapp"}]
     assert payload["board_phase"] == "implement"
     assert payload["specification"]["implementation_plan_summary"] == "Write the exporter."
     assert set(payload["specification"]) == {
@@ -214,7 +216,42 @@ def test_board_filters_by_repo(client, session) -> None:
     assert "App work" in board.text
     assert "Other work" in board.text
     assert 'id="repo-filter"' in board.text
+    assert 'value="myapp"' in board.text
+    assert "acme/myapp" not in board.text
     filtered = client.get("/?repo=acme/other")
     assert "Other work" in filtered.text
     assert "App work" not in filtered.text
-    assert 'selected' in filtered.text
+    assert "selected" in filtered.text
+
+
+def test_board_filters_by_alias(client, session, settings) -> None:
+    settings.allowed_repos = "acme/frontend-app;web,acme/other;shop"
+    create_job(
+        session,
+        external_key="dash-web",
+        repository="acme/frontend-app",
+        request="Web work",
+        specification={"title": "Web work"},
+    )
+    create_job(
+        session,
+        external_key="dash-shop",
+        repository="acme/other",
+        request="Shop work",
+        specification={"title": "Shop work"},
+    )
+    session.commit()
+    board = client.get("/")
+    assert 'value="web"' in board.text
+    assert ">web<" in board.text
+    assert "frontend-app" not in board.text
+    listing = client.get("/jobs")
+    body = listing.json()
+    assert {row["alias"] for row in body["repos"]} == {"shop", "web"}
+    assert body["jobs"][0]["repo_alias"] in {"web", "shop"}
+    filtered = client.get("/?repo=web")
+    assert "Web work" in filtered.text
+    assert "Shop work" not in filtered.text
+    detail = client.get("/tickets/DEV-1")
+    assert "web" in detail.text
+    assert 'href="/?repo=web"' in detail.text

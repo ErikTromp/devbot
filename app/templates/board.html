@@ -12,7 +12,7 @@
       <select id="repo-filter" aria-label="Filter by repository">
         <option value="">All</option>
         {% for repo in repos %}
-        <option value="{{ repo }}" {% if repo == selected_repo %}selected{% endif %}>{{ repo.split('/')[-1] }}</option>
+        <option value="{{ repo.alias }}" {% if selected_repo in (repo.alias, repo.repository) %}selected{% endif %}>{{ repo.alias }}</option>
         {% endfor %}
       </select>
     </label>
@@ -29,7 +29,7 @@
   {% if not jobs %}
   <section class="empty" aria-label="Empty pipeline">
     <h2>No pipeline jobs yet</h2>
-    <p>{% if selected_repo %}No tickets for <code>{{ selected_repo }}</code> yet.{% else %}Start with <code>@devbot create web …</code> in Slack. Tickets will sort into the phase that needs you next.{% endif %}</p>
+    <p>{% if selected_repo %}No tickets for <code>{{ selected_repo_label or selected_repo }}</code> yet.{% else %}Start with <code>@devbot create web …</code> in Slack. Tickets will sort into the phase that needs you next.{% endif %}</p>
   </section>
   {% else %}
   <section class="rack" aria-label="Pipeline phases">
