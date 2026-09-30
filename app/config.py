@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -90,6 +91,11 @@ class Settings(BaseSettings):
 
     def session_secret(self) -> str:
         return self.dashboard_password
+
+    def session_https_only(self) -> bool:
+        """Secure session cookies whenever the public host is not this machine."""
+        host = (urlparse(self.base_url.strip()).hostname or "").lower().rstrip(".")
+        return host not in {"", "localhost", "127.0.0.1", "::1"}
 
     def ticket_url(self, display_id: str) -> str:
         base = self.base_url.strip().rstrip("/")

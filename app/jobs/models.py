@@ -19,9 +19,9 @@ class JobStatus(StrEnum):
 class PipelinePhase(StrEnum):
     CREATE = "create"
     IMPLEMENT = "implement"
-    TEST = "test"
     SECURITY = "security"
     ARCHITECT = "architect"
+    TEST = "test"
     DOCUMENT = "document"
 
 
@@ -37,20 +37,23 @@ class PhaseStatus(StrEnum):
 PIPELINE_ORDER: tuple[PipelinePhase, ...] = (
     PipelinePhase.CREATE,
     PipelinePhase.IMPLEMENT,
-    PipelinePhase.TEST,
     PipelinePhase.SECURITY,
     PipelinePhase.ARCHITECT,
+    PipelinePhase.TEST,
     PipelinePhase.DOCUMENT,
 )
+
+PIPELINE_FLOW = " → ".join(phase.value for phase in PIPELINE_ORDER)
+PIPELINE_AFTER_CREATE = " → ".join(phase.value for phase in PIPELINE_ORDER[1:])
 
 
 class JobStage(StrEnum):
     QUEUED = "queued"
     CREATE = "create"
     IMPLEMENT = "implement"
-    TEST = "test"
     SECURITY = "security"
     ARCHITECT = "architect"
+    TEST = "test"
     DOCUMENT = "document"
     WORKTREE = "worktree"
     CODING = "coding"
@@ -104,9 +107,9 @@ class JobEventType(StrEnum):
 class SlackCommand(StrEnum):
     CREATE = "create"
     IMPLEMENT = "implement"
-    TEST = "test"
     SECURITY = "security"
     ARCHITECT = "architect"
+    TEST = "test"
     DOCUMENT = "document"
     COMMIT = "commit"
     AUTOPILOT = "autopilot"

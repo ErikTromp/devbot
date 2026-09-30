@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import Settings, get_settings, override_settings
 from app.db.session import get_db
@@ -42,6 +43,28 @@ def test_blank_dashboard_credentials_are_rejected(settings: Settings) -> None:
         Settings(**payload)
 
 
+def _session_https_only(app) -> bool:
+    layers = [layer for layer in app.user_middleware if layer.cls is SessionMiddleware]
+    assert layers
+    return layers[-1].kwargs["https_only"]
+
+
+def test_public_base_url_marks_session_cookie_secure(settings: Settings) -> None:
+    override_settings(settings.model_copy(update={"base_url": "https://devbot.example.com"}))
+    assert _session_https_only(create_app()) is True
+    override_settings(settings.model_copy(update={"base_url": "http://192.168.1.20:8100"}))
+    assert _session_https_only(create_app()) is True
+
+
+def test_localhost_base_url_keeps_session_cookie_on_http(settings: Settings) -> None:
+    override_settings(settings.model_copy(update={"base_url": ""}))
+    assert _session_https_only(create_app()) is False
+    override_settings(settings.model_copy(update={"base_url": "http://127.0.0.1:8100"}))
+    assert _session_https_only(create_app()) is False
+    override_settings(settings.model_copy(update={"base_url": "http://localhost:8100"}))
+    assert _session_https_only(create_app()) is False
+
+
 def test_board_and_jobs_require_login(locked_client: TestClient) -> None:
     board = locked_client.get("/", follow_redirects=False)
     assert board.status_code == 303
@@ -52,6 +75,23 @@ def test_board_and_jobs_require_login(locked_client: TestClient) -> None:
 
     health = locked_client.get("/health")
     assert health.status_code == 200
+
+    created = locked_client.post("/jobs", json={"repository": "acme/web", "request": "hi"})
+    assert created.status_code == 401
+
+    docs = locked_client.get("/docs", follow_redirects=False)
+    assert docs.status_code == 303
+    assert docs.headers["location"].startswith("/login")
+    redoc = locked_client.get("/redoc", follow_redirects=False)
+    assert redoc.status_code == 303
+
+    schema = locked_client.get("/openapi.json")
+    assert schema.status_code == 401
+
+    static = locked_client.get("/static/dashboard.css")
+    assert static.status_code == 200
+    slack = locked_client.post("/slack/events", content=b"{}")
+    assert slack.status_code != 303
 
 
 def test_login_rejects_bad_password(locked_client: TestClient) -> None:
@@ -79,6 +119,9 @@ def test_login_then_logout(locked_client: TestClient) -> None:
     assert board.status_code == 200
     assert "Sign out" in board.text
     assert locked_client.get("/jobs").status_code == 200
+    assert locked_client.get("/docs").status_code == 200
+    created = locked_client.post("/jobs", json={"repository": "acme/web", "request": "hi"})
+    assert created.status_code == 200
 
     logout = locked_client.post("/logout", follow_redirects=False)
     assert logout.status_code == 303

@@ -156,9 +156,9 @@ Request URL is `https://<tunnel>/slack/events`. After every ngrok restart, paste
 ```text
 @devbot create web add a one-line comment in the README
 @devbot implement 9
-@devbot test 9
 @devbot security 9
 @devbot architect 9
+@devbot test 9
 @devbot document 9
 @devbot test skip 9
 @devbot status
@@ -188,13 +188,14 @@ alembic upgrade head
 python -m app.jobs.worker
 ```
 
-Without Slack:
+Without Slack, sign in first. `/jobs` requires the dashboard session:
 
 ```powershell
-curl -X POST http://127.0.0.1:8000/jobs -H "Content-Type: application/json" -d "{\"repository\":\"myapp\",\"request\":\"add a README comment\"}"
+curl -c cookies.txt -X POST http://127.0.0.1:8000/login -d "username=devbot&password=change-me&next=/"
+curl -b cookies.txt -X POST http://127.0.0.1:8000/jobs -H "Content-Type: application/json" -d "{\"repository\":\"myapp\",\"request\":\"add a README comment\"}"
 ```
 
-Then `GET /jobs/DEV-1` and `/jobs/DEV-1/events`.
+Then `GET /jobs/DEV-1` and `/jobs/DEV-1/events` with the same cookie jar.
 
 Server: reverse-proxy the API, set Slack to `https://your.domain/slack/events`, `AGENT_WORKSPACE=/srv/ai-dev`.
 

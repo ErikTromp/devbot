@@ -40,7 +40,7 @@ def create_app() -> FastAPI:
         secret_key=settings.session_secret(),
         session_cookie="devbot_session",
         same_site="lax",
-        https_only=False,
+        https_only=settings.session_https_only(),
         max_age=14 * 24 * 3600,
     )
     return app

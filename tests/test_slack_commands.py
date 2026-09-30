@@ -97,11 +97,15 @@ def test_skip_requires_prior_phase(session, settings) -> None:
     handle_slack_event(session, _mention("<@Ubot> implement skip 9"), settings, slack)
     session.refresh(job)
     assert job.phase_results["implement"]["status"] == "skipped"
+    assert "security skip 9" in slack.messages[-1]
+    with pytest.raises(SlackCommandError):
+        handle_slack_event(session, _mention("<@Ubot> test skip 9"), settings, slack)
+    handle_slack_event(session, _mention("<@Ubot> security skip 9"), settings, slack)
+    handle_slack_event(session, _mention("<@Ubot> architect skip 9"), settings, slack)
     handle_slack_event(session, _mention("<@Ubot> test skip 9"), settings, slack)
     session.refresh(job)
     assert job.phase_results["test"]["status"] == "skipped"
-    skipped = slack.messages[-1]
-    assert "security skip 9" in skipped
+    assert "document skip 9" in slack.messages[-1]
 
 
 def test_status_board_includes_issue_title(session, settings) -> None:

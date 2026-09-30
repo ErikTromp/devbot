@@ -27,6 +27,14 @@ SECRET_ENV_KEYS = {
     "DASHBOARD_PASSWORD",
 }
 
+# A subprocess may receive only the coding key it was started with.
+SUBPROCESS_SECRET_ALLOW = {"CURSOR_API_KEY", "COPILOT_GITHUB_TOKEN"}
+
+_SENSITIVE_ENV_RE = re.compile(
+    r"TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|APIKEY|ACCESS_KEY|CREDENTIAL|WEBHOOK|PRIVATE_KEY|DATABASE_URL",
+    re.IGNORECASE,
+)
+
 
 def redact_secrets(text: str | None) -> str:
     if not text:
@@ -43,11 +51,24 @@ def hmac_sha256_hex(secret: str, message: bytes) -> str:
     return hmac.new(secret.encode("utf-8"), message, sha256).hexdigest()
 
 
+def is_secret_env_name(name: str) -> bool:
+    return name.upper() in SECRET_ENV_KEYS or _SENSITIVE_ENV_RE.search(name) is not None
+
+
 def sanitized_env(base: Mapping[str, str], extra: Mapping[str, str] | None = None) -> dict[str, str]:
-    """Copy env for a subprocess without dumping it to logs. Caller must not log the result."""
-    env = dict(base)
-    if extra:
-        env.update(extra)
+    """Environment for a child process with worker secrets removed.
+
+    Inherited variables whose names look like tokens, passwords, or connection
+    strings are dropped. ``extra`` may put back only ``CURSOR_API_KEY`` or
+    ``COPILOT_GITHUB_TOKEN``. Do not log the result.
+    """
+    env = {key: value for key, value in base.items() if not is_secret_env_name(key)}
+    allowed = {
+        key: value
+        for key, value in (extra or {}).items()
+        if not is_secret_env_name(key) or key.upper() in SUBPROCESS_SECRET_ALLOW
+    }
+    env.update(allowed)
     return env
 
 

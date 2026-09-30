@@ -1,4 +1,4 @@
-const PHASES = ["create", "implement", "test", "security", "architect", "document"];
+const PHASES = ["create", "implement", "security", "architect", "test", "document"];
 const COUNT_KEYS = ["QUEUED", "RUNNING", "IDLE", "AWAITING_INPUT", "FAILED"];
 
 function escapeHtml(value) {

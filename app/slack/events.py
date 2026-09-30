@@ -17,6 +17,8 @@ from app.jobs.models import (
     JobEventType,
     JobStatus,
     PhaseStatus,
+    PIPELINE_AFTER_CREATE,
+    PIPELINE_FLOW,
     PipelinePhase,
     SlackCommand,
     command_to_phase,
@@ -217,7 +219,7 @@ def _queue_autopilot_job(session, job, parsed, slack: SlackClient, channel: str,
             job,
             [
                 f"→ Autopilot queued `{phase.value}` for {job.issue_ref}",
-                "Remaining steps run in order: create → implement → test → security → architect → document.",
+                f"Remaining steps run in order: {PIPELINE_FLOW}.",
                 "Each step commits and pushes before the next one starts.",
             ],
         ),
@@ -602,7 +604,7 @@ def format_job_created(job: Job) -> str:
         f"Internal id: `{job.display_id}` until the GitHub issue exists.\n"
         f"→ The coding agent will refine a GitHub issue. I will post `#N` and the title here when it is created.\n"
         + (
-            "Autopilot is on. After create, implement → test → security → architect → document run without further Slack commands.\n"
+            f"Autopilot is on. After create, {PIPELINE_AFTER_CREATE} run without further Slack commands.\n"
             if (job.specification or {}).get("autopilot")
             else ""
         )

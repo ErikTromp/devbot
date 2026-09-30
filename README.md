@@ -2,7 +2,7 @@
 
 Self-hosted pipeline that turns a Slack mention into a GitHub issue, a git worktree, and a pull request. Cursor or GitHub Copilot’s headless CLI does the editing. You trigger each step. Devbot never merges.
 
-`create` → `implement` → `test` → `security` → `architect` → `document`
+`create` → `implement` → `security` → `architect` → `test` → `document`
 
 After a ticket exists, Slack commands use the **GitHub issue number** (`9` or `#9`). Use the internal id `DEV-N` only for `remove`, `status`, `cancel`, and `retry` while `create` is still open and no issue exists yet.
 
@@ -14,9 +14,9 @@ After a ticket exists, Slack commands use the **GitHub issue number** (`9` or `#
 @devbot autopilot web redesign the landing page
 @devbot autopilot 9          # remaining steps, in order
 @devbot implement 9
-@devbot test 9
 @devbot security 9
 @devbot architect 9
+@devbot test 9
 @devbot document 9
 @devbot commit 9             # flush leftover worktree changes
 
@@ -42,9 +42,9 @@ When a step finishes, Slack posts `#N`, the title, and the next `run` or `skip` 
 | --- | --- |
 | `create` | Agent mode writes a GitHub issue. It asks only when a missing fact makes the ticket unusable. |
 | `implement` | Worktree on `agent/issue-N`. Plan, then agent. Nested unit tests (`npm test` / pytest under `frontend` or `backend`). Commit, push, open a PR. |
-| `test` | Broader checks (Playwright, Docker, Appium when present). Missing environment is not a pass. |
 | `security` | OWASP-style review plus scanners that are already in the repo. Fixes stay on the same branch. |
 | `architect` | Design review against the repo’s own patterns. |
+| `test` | Broader checks after review fixes (Playwright, Docker, Appium when present). Missing environment is not a pass. |
 | `document` | Docs on the same PR. The job completes. You merge. |
 
 The worker also keeps a user-owned GitHub Project titled **Devbot** and moves the issue across Status columns as phases run. The signed-in dashboard at `/` shows the same board. Ticket pages live at `/tickets/DEV-N`.
@@ -92,14 +92,15 @@ Job status moves `QUEUED` → `RUNNING` → `IDLE` | `AWAITING_INPUT` | `FAILED`
 
 `ALLOWED_REPOS` is a comma-separated list of `owner/repo;alias` or `owner;alias` (the second form becomes `owner/alias`). Slack uses the alias. An empty allowlist accepts any `owner/name` the token can access.
 
-Dashboard login protects `/`, `/tickets/*`, and job reads. `POST /jobs` stays open so you can enqueue a create-phase job without Slack:
+Dashboard login protects the board, tickets, `/jobs` (including `POST`), `/docs`, and `/openapi.json`. `/health`, `/login`, static files, and the Slack and GitHub webhook paths stay reachable without a session. Webhooks still require a valid HMAC.
 
 ```bash
-curl -X POST http://127.0.0.1:8000/jobs -H "Content-Type: application/json" -d "{\"repository\":\"acme/web\",\"request\":\"add a README comment\"}"
+curl -c cookies.txt -X POST http://127.0.0.1:8000/login -d "username=devbot&password=change-me&next=/"
+curl -b cookies.txt -X POST http://127.0.0.1:8000/jobs -H "Content-Type: application/json" -d "{\"repository\":\"acme/web\",\"request\":\"add a README comment\"}"
 ```
 
-Do not expose that port on the public internet. Put the API behind a private network or a reverse proxy that is not world-reachable.
+Set `BASE_URL` to the public https origin when the board is not on localhost. That marks the session cookie HTTPS-only. Keep the API off the open internet except for `/slack/events` (and `/github/events` if you use it).
 
 ## Security
 
-The coding agent can edit the worktree and run a shell inside it. Keep the worker environment to `GITHUB_TOKEN` and `CURSOR_API_KEY` or `COPILOT_GITHUB_TOKEN` (or the per-person keys in `users.yaml`). Slack text is untrusted. Repository names are validated against the allowlist. A git diff and the test runner are the check, not the model’s claim that it is done. Webhooks use Slack and GitHub HMAC.
+The coding agent can edit the worktree and run a shell inside it. Child processes do not inherit worker secrets. GitHub, Slack, database, and dashboard credentials are stripped from the environment. The subprocess receives only the coding key it was started with (`CURSOR_API_KEY` or `COPILOT_GITHUB_TOKEN`). Git authenticates with the token on the git command. Slack text is untrusted. Repository names are validated against the allowlist. A git diff and the test runner are the check, not the model’s claim that it is done. Webhooks use Slack and GitHub HMAC.

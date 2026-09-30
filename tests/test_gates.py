@@ -42,8 +42,14 @@ def test_phase_order_requires_prior_pass_or_skip() -> None:
 
     results = mark_phase(results, PipelinePhase.CREATE, PhaseStatus.PASSED)
     assert can_run_phase(results, PipelinePhase.IMPLEMENT)[0] is True
+    assert can_run_phase(results, PipelinePhase.SECURITY)[0] is False
     assert can_run_phase(results, PipelinePhase.TEST)[0] is False
 
     results = mark_phase(results, PipelinePhase.IMPLEMENT, PhaseStatus.SKIPPED)
+    assert can_run_phase(results, PipelinePhase.SECURITY)[0] is True
+    assert can_run_phase(results, PipelinePhase.TEST)[0] is False
+
+    results = mark_phase(results, PipelinePhase.SECURITY, PhaseStatus.PASSED)
+    results = mark_phase(results, PipelinePhase.ARCHITECT, PhaseStatus.PASSED)
     assert can_run_phase(results, PipelinePhase.TEST)[0] is True
-    assert can_run_phase(results, PipelinePhase.SECURITY)[0] is False
+    assert can_run_phase(results, PipelinePhase.DOCUMENT)[0] is False

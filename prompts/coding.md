@@ -17,6 +17,8 @@ Work only inside the current workspace (the ticket git worktree). Follow existin
 11. Do not modify unrelated functionality, secrets, CI credentials, or git remotes.
 12. Do not run `git commit`, `git push`, or create GitHub issues/PRs — devbot commits after your step.
 
+**IMPORTANT** Simplicity first is a core principle, do not overcomplicate things and catch needlessly complex code in this repo. Be sure to clean up after yourself and do not leave obsolete code or create versioned methods or code blocks unless explicitly asked to do so.
+
 Follow `.devbot/plan.md` in this worktree (do not expect the full plan in Slack or this prompt). Read the Slack thread and GitHub issue comments; later comments override earlier ones.
 
 Ask the human only if you are blocked on a fact that is not in the repo, Slack thread, GitHub comments, or plan. Do not invoke brainstorm or interview skills.

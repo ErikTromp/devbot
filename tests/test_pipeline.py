@@ -147,8 +147,8 @@ def test_pipeline_creates_pr_when_diff_and_tests_pass(session, settings, tmp_pat
     assert f"https://devbot.example/tickets/{job.display_id}" in done
     assert "Touch feature.txt" not in done
     assert job.worktree_path
-    assert "test skip 9" in done
-    assert "@devbot test 9" in done
+    assert "security skip 9" in done
+    assert "@devbot security 9" in done
 
 
 def test_pipeline_rejects_status_text_as_plan(session, settings, tmp_path, monkeypatch) -> None:
@@ -454,5 +454,5 @@ def test_autopilot_queues_the_next_phase(session, settings) -> None:
     _finish_phase(session, job, deps, PipelinePhase.IMPLEMENT, "done")
     session.refresh(job)
     assert job.status == JobStatus.QUEUED.value
-    assert job.pipeline_phase == PipelinePhase.TEST.value
-    assert any("Autopilot queued `test`" in msg for msg in slack.messages)
+    assert job.pipeline_phase == PipelinePhase.SECURITY.value
+    assert any("Autopilot queued `security`" in msg for msg in slack.messages)

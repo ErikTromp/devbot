@@ -1,8 +1,9 @@
 from app.config import Settings
+from app.jobs.models import PIPELINE_FLOW
 
-HELP_TEXT = """Devbot — GitHub-issue pipeline. You trigger each step; I never merge.
+HELP_TEXT = f"""Devbot — GitHub-issue pipeline. You trigger each step; I never merge.
 
-Order: create → implement → test → security → architect → document
+Order: {PIPELINE_FLOW}
 
 *Create a ticket*
 `@devbot create web redesign the landing page`
@@ -14,9 +15,9 @@ The coding agent writes a GitHub issue from the request and repo. It asks only i
 
 *Work the ticket* (use `9` or `#9`, not `DEV-9`)
 `@devbot implement 9` — plan mode, then agent implements that plan, tests, PR
-`@devbot test 9` — broader tests (Playwright / Docker / Appium if present)
 `@devbot security 9` — OWASP-style review and fixes
 `@devbot architect 9` — design review
+`@devbot test 9` — broader tests after review fixes (Playwright / Docker / Appium if present)
 `@devbot document 9` — update docs on the same PR
 `@devbot commit 9` — force stage/commit/push of any leftover worktree changes (always available)
 
